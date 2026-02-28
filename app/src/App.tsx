@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { questions } from './data/questions';
+import { quizzes } from './data/quizzes';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 
 function App() {
+  const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
   const [showResult, setShowResult] = useState(false);
@@ -26,8 +27,74 @@ function App() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [quizCompleted, setQuizCompleted] = useState(false);
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+  const activeQuiz = quizzes.find((quiz) => quiz.id === selectedQuizId) ?? null;
+  const activeQuestions = activeQuiz?.questions ?? [];
+
+  if (!activeQuiz) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <Card className="shadow-xl border-0">
+            <CardHeader>
+              <CardTitle className="text-2xl md:text-3xl font-bold text-slate-800">
+                Choisissez un quiz à lancer
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {quizzes.map((quiz) => (
+                <Card key={quiz.id} className="border border-slate-200 shadow-sm">
+                  <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800">{quiz.title}</h3>
+                      <p className="text-sm text-slate-600">{quiz.description}</p>
+                      <p className="text-xs text-slate-500 mt-1">{quiz.questions.length} questions détectées</p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setSelectedQuizId(quiz.id);
+                        setCurrentQuestionIndex(0);
+                        setSelectedAnswers([]);
+                        setShowResult(false);
+                        setScore(0);
+                        setAnsweredQuestions(new Set());
+                        setShowExplanation(false);
+                        setQuizCompleted(false);
+                      }}
+                      disabled={quiz.questions.length === 0}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    >
+                      Lancer
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeQuestions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <Card className="shadow-xl border-0">
+            <CardContent className="p-8 text-center space-y-4">
+              <h1 className="text-2xl font-bold text-slate-800">Aucune question trouvée</h1>
+              <p className="text-slate-600">Le quiz sélectionné ne contient pas de questions exploitables.</p>
+              <Button variant="outline" onClick={() => setSelectedQuizId(null)}>
+                Choisir un autre quiz
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQuestion = activeQuestions[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / activeQuestions.length) * 100;
 
   const handleAnswerSelect = (index: number) => {
     if (showResult) return;
@@ -67,7 +134,7 @@ function App() {
   };
 
   const nextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
+    if (currentQuestionIndex < activeQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswers([]);
       setShowResult(false);
@@ -96,6 +163,11 @@ function App() {
     setQuizCompleted(false);
   };
 
+  const changeQuiz = () => {
+    setSelectedQuizId(null);
+    resetQuiz();
+  };
+
   const goToQuestion = (index: number) => {
     setCurrentQuestionIndex(index);
     setSelectedAnswers([]);
@@ -120,9 +192,10 @@ function App() {
   };
 
   if (quizCompleted) {
-    const percentage = Math.round((score / questions.length) * 100);
+    const percentage = Math.round((score / activeQuestions.length) * 100);
     let message = '';
     let icon = null;
+    const domains = Array.from(new Set(activeQuestions.map((q) => q.domain)));
     
     if (percentage >= 80) {
       message = 'Excellent ! Vous maîtrisez bien les concepts AWS !';
@@ -150,7 +223,7 @@ function App() {
               
               <div className="bg-slate-50 rounded-2xl p-8 mb-8">
                 <div className="text-5xl font-bold text-slate-800 mb-2">
-                  {score} / {questions.length}
+                  {score} / {activeQuestions.length}
                 </div>
                 <div className="text-2xl text-slate-500">
                   {percentage}%
@@ -159,8 +232,8 @@ function App() {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                {['Technologie', 'Concepts du cloud', 'Sécurité et conformité', 'Facturation et tarification'].map(domain => {
-                  const domainQuestions = questions.filter(q => q.domain === domain);
+                {domains.map(domain => {
+                  const domainQuestions = activeQuestions.filter(q => q.domain === domain);
                   const domainCorrect = domainQuestions.filter(q => answeredQuestions.has(q.id)).length;
                   return (
                     <div key={domain} className="bg-white rounded-lg p-4 border border-slate-200">
@@ -173,14 +246,19 @@ function App() {
                 })}
               </div>
 
-              <Button 
-                onClick={resetQuiz}
-                size="lg"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-              >
-                <RotateCcw className="w-5 h-5 mr-2" />
-                Recommencer le Quiz
-              </Button>
+              <div className="flex flex-wrap justify-center gap-3">
+                <Button 
+                  onClick={resetQuiz}
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  <RotateCcw className="w-5 h-5 mr-2" />
+                  Recommencer le Quiz
+                </Button>
+                <Button onClick={changeQuiz} size="lg" variant="outline">
+                  Choisir un autre quiz
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -195,17 +273,20 @@ function App() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800">
-              AWS QCM Exam
+              {activeQuiz.title}
             </h1>
             <div className="flex items-center gap-4">
+              <Button variant="outline" size="sm" onClick={changeQuiz}>
+                Changer de quiz
+              </Button>
               <Badge variant="outline" className="text-sm px-3 py-1">
-                Score: {score}/{questions.length}
+                Score: {score}/{activeQuestions.length}
               </Badge>
             </div>
           </div>
           <Progress value={progress} className="h-2" />
           <div className="flex justify-between text-sm text-slate-500 mt-2">
-            <span>Question {currentQuestionIndex + 1} sur {questions.length}</span>
+            <span>Question {currentQuestionIndex + 1} sur {activeQuestions.length}</span>
             <span>{Math.round(progress)}%</span>
           </div>
         </div>
@@ -328,7 +409,7 @@ function App() {
                   onClick={nextQuestion}
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 flex items-center gap-2"
                 >
-                  {currentQuestionIndex === questions.length - 1 ? 'Terminer' : 'Suivant'}
+                  {currentQuestionIndex === activeQuestions.length - 1 ? 'Terminer' : 'Suivant'}
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               )}
@@ -344,7 +425,7 @@ function App() {
               <span className="text-xs text-slate-400">Cliquez pour naviguer</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {questions.map((q, index) => (
+              {activeQuestions.map((q, index) => (
                 <button
                   key={q.id}
                   onClick={() => goToQuestion(index)}
