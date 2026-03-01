@@ -44,9 +44,9 @@ function App() {
               {quizzes.map((quiz) => (
                 <Card key={quiz.id} className="border border-slate-200 shadow-sm">
                   <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-800">{quiz.title}</h3>
-                      <p className="text-sm text-slate-600">{quiz.description}</p>
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-semibold text-slate-800 break-words">{quiz.title}</h3>
+                      <p className="text-sm text-slate-600 break-words">{quiz.description}</p>
                       <p className="text-xs text-slate-500 mt-1">{quiz.questions.length} questions détectées</p>
                     </div>
                     <Button
@@ -271,11 +271,11 @@ function App() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-800">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-4">
+            <h1 className="min-w-0 text-2xl md:text-3xl font-bold text-slate-800 break-words">
               {activeQuiz.title}
             </h1>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2 md:gap-4">
               <Button variant="outline" size="sm" onClick={changeQuiz}>
                 Changer de quiz
               </Button>
@@ -305,7 +305,7 @@ function App() {
                 </Badge>
               )}
             </div>
-            <CardTitle className="text-xl md:text-2xl font-semibold text-slate-800 mt-4 leading-relaxed">
+            <CardTitle className="text-xl md:text-2xl font-semibold text-slate-800 mt-4 leading-relaxed break-words">
               {currentQuestion.question}
             </CardTitle>
           </CardHeader>
@@ -317,7 +317,7 @@ function App() {
                   ? currentQuestion.correctAnswer.includes(index)
                   : currentQuestion.correctAnswer === index;
                 
-                let buttonClass = "w-full text-left justify-start h-auto py-4 px-4 border-2 transition-all duration-200 ";
+                let buttonClass = "w-full text-left justify-start h-auto py-4 px-4 border-2 transition-all duration-200 whitespace-normal ";
                 
                 if (showResult) {
                   if (isCorrect) {
@@ -343,7 +343,7 @@ function App() {
                     onClick={() => handleAnswerSelect(index)}
                     disabled={showResult}
                   >
-                    <div className="flex items-center gap-3 w-full">
+                    <div className="flex items-center gap-3 w-full min-w-0">
                       {currentQuestion.isMultipleChoice ? (
                         <Checkbox 
                           checked={isSelected} 
@@ -358,7 +358,7 @@ function App() {
                           {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />}
                         </div>
                       )}
-                      <span className="flex-1">{option}</span>
+                      <span className="flex-1 min-w-0 break-words">{option}</span>
                       {showResult && isCorrect && (
                         <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
                       )}
@@ -378,7 +378,7 @@ function App() {
                   <BookOpen className="w-4 h-4" />
                   Explication
                 </h4>
-                <p className="text-blue-700 leading-relaxed">
+                <p className="text-blue-700 leading-relaxed break-words">
                   {currentQuestion.explanation}
                 </p>
               </div>
