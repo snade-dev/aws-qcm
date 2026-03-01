@@ -1,6 +1,4 @@
 import { questions as baseQuestions, type Question } from './questions';
-import prepAccelererRaw from './Prep_Accélérer_Night_time_Vendredi_27_02_206.md?raw';
-import prepPartieDifficileRaw from './Prep_Partie_plus_difficile_Scenarios_Friday_27_02_2026.md?raw';
 
 export interface QuizDefinition {
   id: string;
@@ -175,23 +173,43 @@ const parseMarkdownQuiz = (raw: string, fallbackDomain: string): Question[] => {
   return parsedQuestions;
 };
 
+const markdownFiles = import.meta.glob('./*.md', {
+  eager: true,
+  import: 'default',
+  query: '?raw'
+}) as Record<string, string>;
+
+const toReadableTitle = (fileName: string) => fileName.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+const toQuizId = (fileName: string) =>
+  fileName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const markdownQuizzes: QuizDefinition[] = Object.entries(markdownFiles)
+  .sort(([aPath], [bPath]) => aPath.localeCompare(bPath))
+  .map(([path, raw]) => {
+    const fileName = path.split('/').pop()?.replace(/\.md$/, '') ?? 'quiz-markdown';
+    const readableTitle = toReadableTitle(fileName);
+
+    return {
+      id: `quiz-${toQuizId(fileName)}`,
+      title: `${readableTitle} (Markdown)`,
+      description: `Questions générées depuis ${fileName}.md.`,
+      questions: parseMarkdownQuiz(raw, 'Technologie')
+    };
+  });
+
 export const quizzes: QuizDefinition[] = [
   {
     id: 'quiz-base',
     title: 'Quiz AWS (base)',
     description: 'Questionnaire principal déjà présent dans l\'application.',
     questions: baseQuestions
-  },
-  {
-    id: 'quiz-accelerer',
-    title: 'Prep Accélérer (Markdown)',
-    description: 'Questions générées depuis Prep_Accélérer_Night_time_Vendredi_27_02_206.md.',
-    questions: parseMarkdownQuiz(prepAccelererRaw, 'Technologie')
-  },
-  {
-    id: 'quiz-scenarios',
-    title: 'Prep Scenarios difficile (Markdown)',
-    description: 'Questions générées depuis Prep_Partie_plus_difficile_Scenarios_Friday_27_02_2026.md.',
-    questions: parseMarkdownQuiz(prepPartieDifficileRaw, 'Technologie')
   }
+  ,
+  ...markdownQuizzes
 ];
