@@ -4,6 +4,7 @@ export interface Question {
   options: string[];
   correctAnswer: number | number[];
   explanation: string;
+  incorrectOptionExplanations?: Record<number, string>;
   domain: string;
   isMultipleChoice?: boolean;
 }

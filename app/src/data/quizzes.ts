@@ -34,6 +34,22 @@ const normalizeLine = (line: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const normalizeForMatch = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const toComparableWords = (text: string) =>
+  new Set(
+    normalizeForMatch(text)
+      .split(' ')
+      .filter((word) => word.length > 2)
+  );
+
 const extractDomain = (lines: string[], fallbackDomain: string) => {
   const domainIndex = lines.findIndex((line) => line === 'Domaine');
   if (domainIndex === -1) {
@@ -70,6 +86,119 @@ const extractExplanation = (lines: string[]) => {
   }
 
   return explanationLines.join(' ') || 'Explication non fournie dans la source.';
+};
+
+const extractIncorrectOptionExplanations = (
+  lines: string[],
+  options: string[],
+  correctIndices: number[]
+) => {
+  const start = lines.findIndex((line) => line.startsWith('Réponses incorrectes'));
+  if (start === -1) {
+    return {} as Record<number, string>;
+  }
+
+  const sectionLines: string[] = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (
+      isQuestionHeader(line) ||
+      line === 'Domaine' ||
+      line.startsWith('Référence') ||
+      line.startsWith('Références') ||
+      line.startsWith('Liens vers les références') ||
+      line.startsWith('Explication générale') ||
+      line.startsWith('Réponse correcte')
+    ) {
+      break;
+    }
+
+    if (isLinkOrImage(line) || isCorrectMarker(line) || isIncorrectMarker(line)) {
+      continue;
+    }
+
+    sectionLines.push(line);
+  }
+
+  if (sectionLines.length === 0) {
+    return {} as Record<number, string>;
+  }
+
+  const incorrectIndices = options
+    .map((_, index) => index)
+    .filter((index) => !correctIndices.includes(index));
+
+  const usedIndices = new Set<number>();
+  const explanations: Record<number, string> = {};
+  const unmatchedLines: string[] = [];
+
+  sectionLines.forEach((line) => {
+    const lineNorm = normalizeForMatch(line);
+    let bestIndex: number | null = null;
+    let bestScore = 0;
+
+    incorrectIndices.forEach((optionIndex) => {
+      if (usedIndices.has(optionIndex)) {
+        return;
+      }
+
+      const option = options[optionIndex];
+      const optionNorm = normalizeForMatch(option);
+      if (!optionNorm) {
+        return;
+      }
+
+      let score = 0;
+      if (lineNorm.startsWith(optionNorm)) {
+        score = 3;
+      } else if (lineNorm.includes(optionNorm) || optionNorm.includes(lineNorm)) {
+        score = 2;
+      } else {
+        const optionWords = toComparableWords(option);
+        const lineWords = toComparableWords(line);
+        let overlap = 0;
+        optionWords.forEach((word) => {
+          if (lineWords.has(word)) {
+            overlap += 1;
+          }
+        });
+        if (overlap >= 2) {
+          score = 1;
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = optionIndex;
+      }
+    });
+
+    if (bestIndex === null || bestScore === 0) {
+      unmatchedLines.push(line);
+      return;
+    }
+
+    const option = options[bestIndex];
+    const colonIndex = line.indexOf(':');
+    const startsWithOption = normalizeForMatch(line).startsWith(normalizeForMatch(option));
+    const explanationText =
+      startsWithOption && colonIndex !== -1
+        ? line.slice(colonIndex + 1).trim()
+        : line.trim();
+
+    explanations[bestIndex] = explanationText;
+    usedIndices.add(bestIndex);
+  });
+
+  const remainingIndices = incorrectIndices.filter((index) => !usedIndices.has(index));
+  remainingIndices.forEach((optionIndex, idx) => {
+    const fallbackLine = unmatchedLines[idx];
+    if (fallbackLine) {
+      explanations[optionIndex] = fallbackLine.trim();
+    }
+  });
+
+  return explanations;
 };
 
 const parseMarkdownQuiz = (raw: string, fallbackDomain: string): Question[] => {
@@ -158,6 +287,11 @@ const parseMarkdownQuiz = (raw: string, fallbackDomain: string): Question[] => {
 
     const domain = extractDomain(block, fallbackDomain);
     const explanation = extractExplanation(block);
+    const incorrectOptionExplanations = extractIncorrectOptionExplanations(
+      block,
+      options,
+      correctIndices
+    );
 
     parsedQuestions.push({
       id: parsedQuestions.length + 1,
@@ -165,6 +299,7 @@ const parseMarkdownQuiz = (raw: string, fallbackDomain: string): Question[] => {
       options,
       correctAnswer: correctIndices.length > 1 ? correctIndices : correctIndices[0] ?? 0,
       explanation,
+      incorrectOptionExplanations,
       domain,
       isMultipleChoice: correctIndices.length > 1
     });

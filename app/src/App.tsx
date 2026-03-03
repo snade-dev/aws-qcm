@@ -70,7 +70,12 @@ function App() {
   };
 
   useEffect(() => {
-    if (quizMode !== "exam" || !activeQuiz || quizCompleted || timeRemaining <= 0) {
+    if (
+      quizMode !== "exam" ||
+      !activeQuiz ||
+      quizCompleted ||
+      timeRemaining <= 0
+    ) {
       return;
     }
 
@@ -82,7 +87,12 @@ function App() {
   }, [quizMode, activeQuiz, quizCompleted, timeRemaining]);
 
   useEffect(() => {
-    if (quizMode === "exam" && activeQuiz && !quizCompleted && timeRemaining === 0) {
+    if (
+      quizMode === "exam" &&
+      activeQuiz &&
+      !quizCompleted &&
+      timeRemaining === 0
+    ) {
       finishExam();
     }
   }, [quizMode, activeQuiz, quizCompleted, timeRemaining]);
@@ -108,22 +118,26 @@ function App() {
 
   if (!activeQuiz) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
-        <div className="max-w-4xl mx-auto">
-          <Card className="shadow-xl border-0">
-            <CardHeader>
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 p-4 md:p-8">
+        <div className="max-w-5xl mx-auto space-y-5">
+          <Card className="border border-slate-200/80 shadow-2xl shadow-slate-200/50">
+            <CardHeader className="pb-2">
               <CardTitle className="text-2xl md:text-3xl font-bold text-slate-800">
                 Choisissez un quiz à lancer
               </CardTitle>
+              <p className="text-sm md:text-base text-slate-600">
+                Sélectionnez un quiz puis le mode adapté : entraînement guidé ou
+                examen chronométré.
+              </p>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pb-6">
               {quizzes.map((quiz) => (
                 <Card
                   key={quiz.id}
-                  className="border border-slate-200 shadow-sm"
+                  className="border border-slate-200 bg-white/80 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300"
                 >
-                  <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="min-w-0">
+                  <CardContent className="p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="min-w-0 space-y-1">
                       <h3 className="text-lg font-semibold text-slate-800 break-words">
                         {quiz.title}
                       </h3>
@@ -134,20 +148,22 @@ function App() {
                         {quiz.questions.length} questions détectées
                       </p>
                     </div>
-                    <Button
-                      onClick={() => startQuiz(quiz.id, "training")}
-                      disabled={quiz.questions.length === 0}
-                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                    >
-                      Entraînement
-                    </Button>
-                    <Button
-                      onClick={() => startQuiz(quiz.id, "exam")}
-                      disabled={quiz.questions.length === 0}
-                      variant="outline"
-                    >
-                      Examen
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                      <Button
+                        onClick={() => startQuiz(quiz.id, "training")}
+                        disabled={quiz.questions.length === 0}
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                      >
+                        Entraînement
+                      </Button>
+                      <Button
+                        onClick={() => startQuiz(quiz.id, "exam")}
+                        disabled={quiz.questions.length === 0}
+                        variant="outline"
+                      >
+                        Examen
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -160,9 +176,9 @@ function App() {
 
   if (activeQuestions.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
-          <Card className="shadow-xl border-0">
+          <Card className="shadow-xl border border-slate-200/80">
             <CardContent className="p-8 text-center space-y-4">
               <h1 className="text-2xl font-bold text-slate-800">
                 Aucune question trouvée
@@ -308,9 +324,18 @@ function App() {
     }
   };
 
-  const getOptionExplanation = (isOptionCorrect: boolean) => {
+  const getOptionExplanation = (
+    optionIndex: number,
+    isOptionCorrect: boolean,
+  ) => {
     if (isOptionCorrect) {
       return currentQuestion.explanation;
+    }
+
+    const parsedExplanation =
+      currentQuestion.incorrectOptionExplanations?.[optionIndex];
+    if (parsedExplanation) {
+      return parsedExplanation;
     }
 
     const correctOptions = Array.isArray(currentQuestion.correctAnswer)
@@ -341,9 +366,9 @@ function App() {
     }
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
-          <Card className="shadow-xl border-0">
+          <Card className="shadow-xl border border-slate-200/80">
             <CardContent className="p-8 text-center">
               <div className="flex justify-center mb-6">{icon}</div>
               <h1 className="text-3xl font-bold text-slate-800 mb-4">
@@ -351,7 +376,7 @@ function App() {
               </h1>
               <p className="text-xl text-slate-600 mb-8">{message}</p>
 
-              <div className="bg-slate-50 rounded-2xl p-8 mb-8">
+              <div className="bg-slate-50 rounded-2xl p-8 mb-8 border border-slate-200/80">
                 <div className="text-5xl font-bold text-slate-800 mb-2">
                   {score} / {activeQuestions.length}
                 </div>
@@ -374,7 +399,7 @@ function App() {
                   return (
                     <div
                       key={domain}
-                      className="bg-white rounded-lg p-4 border border-slate-200"
+                      className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs"
                     >
                       <div className="text-xs text-slate-500 mb-1">
                         {domain}
@@ -408,56 +433,69 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 p-4 md:p-8">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-4">
-            <h1 className="min-w-0 text-2xl md:text-3xl font-bold text-slate-800 break-words">
-              {activeQuiz.title}
-            </h1>
-            <div className="flex flex-wrap items-center gap-2 md:gap-4">
-              <Button variant="outline" size="sm" onClick={changeQuiz}>
-                Changer de quiz
-              </Button>
-              <Badge variant="secondary" className="text-sm px-3 py-1">
-                Mode: {quizMode === "exam" ? "Examen" : "Entraînement"}
-              </Badge>
-              {quizMode === "exam" && (
+        <Card className="mb-6 border border-slate-200/80 shadow-md bg-white/90">
+          <CardContent className="p-5 md:p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-4">
+              <h1 className="min-w-0 text-2xl md:text-3xl font-bold text-slate-800 break-words leading-tight">
+                {activeQuiz.title}
+              </h1>
+              <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                <Badge
+                  variant="secondary"
+                  className="text-sm px-3 py-1 rounded-full"
+                >
+                  Mode: {quizMode === "exam" ? "Examen" : "Entraînement"}
+                </Badge>
+                {quizMode === "exam" && (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-sm px-3 py-1 rounded-full",
+                      timeRemaining <= 300
+                        ? "border-red-300 text-red-700 bg-red-50"
+                        : "",
+                    )}
+                  >
+                    Temps restant: {formatTime(timeRemaining)}
+                  </Badge>
+                )}
                 <Badge
                   variant="outline"
-                  className={cn(
-                    "text-sm px-3 py-1",
-                    timeRemaining <= 300
-                      ? "border-red-300 text-red-700 bg-red-50"
-                      : "",
-                  )}
+                  className="text-sm px-3 py-1 rounded-full"
                 >
-                  Temps restant: {formatTime(timeRemaining)}
+                  {quizMode === "exam"
+                    ? `Répondu: ${answeredQuestions.size}/${activeQuestions.length}`
+                    : `Score: ${score}/${activeQuestions.length}`}
                 </Badge>
-              )}
-              <Badge variant="outline" className="text-sm px-3 py-1">
-                {quizMode === "exam"
-                  ? `Répondu: ${answeredQuestions.size}/${activeQuestions.length}`
-                  : `Score: ${score}/${activeQuestions.length}`}
-              </Badge>
+                <Button variant="outline" size="sm" onClick={changeQuiz}>
+                  Changer de quiz
+                </Button>
+              </div>
             </div>
-          </div>
-          <Progress value={progress} className="h-2" />
-          <div className="flex justify-between text-sm text-slate-500 mt-2">
-            <span>
-              Question {currentQuestionIndex + 1} sur {activeQuestions.length}
-            </span>
-            <span>{Math.round(progress)}%</span>
-          </div>
-        </div>
+            <Progress value={progress} className="h-2.5" />
+            <div className="flex justify-between text-sm text-slate-500 mt-2">
+              <span>
+                Question {currentQuestionIndex + 1} sur {activeQuestions.length}
+              </span>
+              <span className="font-medium text-slate-700">
+                {Math.round(progress)}%
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Question Card */}
-        <Card className="shadow-lg border-0 mb-6">
-          <CardHeader className="pb-4">
+        <Card className="shadow-lg border border-slate-200/80 bg-white mb-6">
+          <CardHeader className="pb-4 pt-6 px-6">
             <div className="flex items-start justify-between gap-4">
               <Badge
-                className={cn("border", getDomainColor(currentQuestion.domain))}
+                className={cn(
+                  "border rounded-full",
+                  getDomainColor(currentQuestion.domain),
+                )}
               >
                 {currentQuestion.domain}
               </Badge>
@@ -471,11 +509,11 @@ function App() {
                 </Badge>
               )}
             </div>
-            <CardTitle className="text-xl md:text-2xl font-semibold text-slate-800 mt-4 leading-relaxed break-words">
+            <CardTitle className="text-xl md:text-2xl font-semibold text-slate-800 mt-4 leading-relaxed break-words tracking-tight">
               {currentQuestion.question}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-6">
             <div className="space-y-3">
               {currentQuestion.options.map((option, index) => {
                 const isSelected = selectedAnswers.includes(index);
@@ -484,15 +522,15 @@ function App() {
                   : currentQuestion.correctAnswer === index;
 
                 let buttonClass =
-                  "w-full text-left justify-start h-auto py-4 px-4 border-2 transition-all duration-200 whitespace-normal ";
+                  "w-full text-left justify-start h-auto py-4 px-4 border-2 rounded-xl transition-all duration-200 whitespace-normal ";
 
                 if (showResult) {
                   if (isCorrect) {
                     buttonClass +=
-                      "border-green-500 bg-green-50 text-green-800 hover:bg-green-100 ";
+                      "border-green-500 bg-green-50 text-green-800 hover:bg-green-100 shadow-xs ";
                   } else if (isSelected && !isCorrect) {
                     buttonClass +=
-                      "border-red-500 bg-red-50 text-red-800 hover:bg-red-100 ";
+                      "border-red-500 bg-red-50 text-red-800 hover:bg-red-100 shadow-xs ";
                   } else {
                     buttonClass +=
                       "border-slate-200 bg-slate-50 text-slate-400 ";
@@ -500,10 +538,10 @@ function App() {
                 } else {
                   if (isSelected) {
                     buttonClass +=
-                      "border-blue-500 bg-blue-50 text-blue-800 hover:bg-blue-100 ";
+                      "border-blue-500 bg-blue-50 text-blue-800 hover:bg-blue-100 shadow-xs ";
                   } else {
                     buttonClass +=
-                      "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 ";
+                      "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/60 hover:shadow-xs ";
                   }
                 }
 
@@ -534,7 +572,10 @@ function App() {
                           )}
                         </div>
                       )}
-                      <span className="flex-1 min-w-0 break-words">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold flex-shrink-0">
+                        {String.fromCharCode(65 + index)}
+                      </span>
+                      <span className="flex-1 min-w-0 break-words font-medium">
                         {option}
                       </span>
                       {quizMode === "training" && showResult && isCorrect && (
@@ -555,7 +596,7 @@ function App() {
             {/* Explanation */}
             {quizMode === "training" && showExplanation && (
               <>
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mt-6 p-5 bg-blue-50 border border-blue-200 rounded-xl shadow-xs">
                   <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
                     <BookOpen className="w-4 h-4" />
                     Explication
@@ -565,7 +606,7 @@ function App() {
                   </p>
                 </div>
 
-                <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="mt-4 p-5 bg-slate-50 border border-slate-200 rounded-xl shadow-xs">
                   <h4 className="font-semibold text-slate-800 mb-3">
                     Analyse des options
                   </h4>
@@ -598,7 +639,7 @@ function App() {
                             </p>
                           </div>
                           <p className="text-sm text-slate-600 leading-relaxed break-words pl-6">
-                            {getOptionExplanation(isOptionCorrect)}
+                            {getOptionExplanation(index, isOptionCorrect)}
                           </p>
                         </div>
                       );
@@ -609,12 +650,12 @@ function App() {
             )}
 
             {/* Actions */}
-            <div className="flex items-center justify-between mt-6">
+            <div className="flex items-center justify-between mt-6 pt-2">
               <Button
                 variant="outline"
                 onClick={prevQuestion}
                 disabled={currentQuestionIndex === 0}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 rounded-lg"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Précédent
@@ -624,7 +665,7 @@ function App() {
                 <Button
                   onClick={checkAnswer}
                   disabled={selectedAnswers.length === 0}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg"
                 >
                   Valider
                 </Button>
@@ -632,7 +673,7 @@ function App() {
                 <Button
                   onClick={nextQuestion}
                   disabled={quizMode === "exam" && selectedAnswers.length === 0}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 flex items-center gap-2"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 flex items-center gap-2 rounded-lg"
                 >
                   {currentQuestionIndex === activeQuestions.length - 1
                     ? "Terminer"
@@ -645,7 +686,7 @@ function App() {
         </Card>
 
         {/* Question Navigator */}
-        <Card className="shadow-md border-0">
+        <Card className="shadow-md border border-slate-200/80 bg-white/95">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-slate-600">
@@ -661,7 +702,7 @@ function App() {
                   key={q.id}
                   onClick={() => goToQuestion(index)}
                   className={cn(
-                    "w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200",
+                    "w-9 h-9 rounded-lg text-sm font-semibold transition-all duration-200",
                     index === currentQuestionIndex
                       ? "bg-blue-600 text-white shadow-md"
                       : quizMode === "training" && reviewedQuestions.has(q.id)
