@@ -19,10 +19,22 @@ const stopHeadings = [
   'Bonne réponse'
 ];
 
+const normalizeHeading = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const isQuestionHeader = (line: string) => /^Question\s+\d+/i.test(line);
 const isCorrectMarker = (line: string) => /Votre\s+(sélection|réponse)\s+est\s+correcte/i.test(line);
 const isIncorrectMarker = (line: string) => /Votre\s+(sélection|réponse)\s+est\s+incorrecte/i.test(line);
-const isStopHeading = (line: string) => stopHeadings.some((heading) => line.startsWith(heading));
+const isStopHeading = (line: string) => {
+  const normalizedLine = normalizeHeading(line);
+  return stopHeadings.some((heading) => normalizedLine.startsWith(normalizeHeading(heading)));
+};
 const isLinkOrImage = (line: string) => /^\[.*\]\(.*\)$/.test(line) || /^!\[.*\]\(.*\)$/.test(line) || /^!\[\]\[.*\]$/.test(line);
 
 const normalizeLine = (line: string) =>
@@ -35,13 +47,7 @@ const normalizeLine = (line: string) =>
     .trim();
 
 const normalizeForMatch = (text: string) =>
-  text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  normalizeHeading(text);
 
 const toComparableWords = (text: string) =>
   new Set(
@@ -50,8 +56,82 @@ const toComparableWords = (text: string) =>
       .filter((word) => word.length > 2)
   );
 
+const parseOptionLabel = (line: string) => {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (trimmed.includes(':')) {
+    return trimmed.split(':')[0].trim();
+  }
+
+  const wordCount = trimmed.split(/\s+/).length;
+  if (wordCount <= 14 && !/[.!?]$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return '';
+};
+
+const extractOptionsFromAnswerSections = (lines: string[]) => {
+  const correctHeadingIndex = lines.findIndex((line) => {
+    const heading = normalizeHeading(line);
+    return heading.startsWith('reponse correcte') || heading.startsWith('reponses correctes');
+  });
+
+  const incorrectHeadingIndex = lines.findIndex((line) => {
+    const heading = normalizeHeading(line);
+    return heading.startsWith('reponses incorrectes') || heading.startsWith('options incorrectes');
+  });
+
+  if (correctHeadingIndex === -1 || incorrectHeadingIndex === -1 || incorrectHeadingIndex <= correctHeadingIndex) {
+    return null;
+  }
+
+  const correctOptions: string[] = [];
+  for (let i = correctHeadingIndex + 1; i < incorrectHeadingIndex; i += 1) {
+    const line = lines[i];
+    if (isQuestionHeader(line) || normalizeHeading(line).startsWith('liens vers les references')) {
+      break;
+    }
+    const candidate = parseOptionLabel(line);
+    if (candidate && !correctOptions.includes(candidate)) {
+      correctOptions.push(candidate);
+    }
+  }
+
+  const incorrectOptions: string[] = [];
+  for (let i = incorrectHeadingIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    const normalizedLine = normalizeHeading(line);
+    if (
+      isQuestionHeader(line) ||
+      normalizedLine === 'domaine' ||
+      normalizedLine.startsWith('reference') ||
+      normalizedLine.startsWith('liens vers les references') ||
+      normalizedLine.startsWith('explication generale')
+    ) {
+      break;
+    }
+
+    const candidate = parseOptionLabel(line);
+    if (candidate && !incorrectOptions.includes(candidate) && !correctOptions.includes(candidate)) {
+      incorrectOptions.push(candidate);
+    }
+  }
+
+  const options = [...correctOptions, ...incorrectOptions];
+  if (options.length < 2 || correctOptions.length === 0) {
+    return null;
+  }
+
+  const correctIndices = correctOptions.map((_, index) => index);
+  return { options, correctIndices };
+};
+
 const extractDomain = (lines: string[], fallbackDomain: string) => {
-  const domainIndex = lines.findIndex((line) => line === 'Domaine');
+  const domainIndex = lines.findIndex((line) => normalizeHeading(line) === 'domaine');
   if (domainIndex === -1) {
     return fallbackDomain;
   }
@@ -65,7 +145,7 @@ const extractDomain = (lines: string[], fallbackDomain: string) => {
 };
 
 const extractExplanation = (lines: string[]) => {
-  const start = lines.findIndex((line) => line === 'Explication générale');
+  const start = lines.findIndex((line) => normalizeHeading(line) === 'explication generale');
   if (start === -1) {
     return 'Explication non fournie dans la source.';
   }
@@ -73,10 +153,19 @@ const extractExplanation = (lines: string[]) => {
   const explanationLines: string[] = [];
   for (let i = start + 1; i < lines.length; i += 1) {
     const line = lines[i];
-    if (isQuestionHeader(line) || line === 'Domaine' || line.startsWith('Référence') || line.startsWith('Références')) {
+    const normalizedLine = normalizeHeading(line);
+    if (isQuestionHeader(line) || normalizedLine === 'domaine' || normalizedLine.startsWith('reference')) {
       break;
     }
-    if (isLinkOrImage(line) || isCorrectMarker(line) || isIncorrectMarker(line) || line.startsWith('Options correctes') || line.startsWith('Options incorrectes')) {
+    if (
+      isLinkOrImage(line) ||
+      isCorrectMarker(line) ||
+      isIncorrectMarker(line) ||
+      normalizedLine.startsWith('options correctes') ||
+      normalizedLine.startsWith('options incorrectes') ||
+      normalizedLine.startsWith('reponses incorrectes') ||
+      normalizedLine.startsWith('reponse correcte')
+    ) {
       continue;
     }
     explanationLines.push(line);
@@ -93,7 +182,7 @@ const extractIncorrectOptionExplanations = (
   options: string[],
   correctIndices: number[]
 ) => {
-  const start = lines.findIndex((line) => line.startsWith('Réponses incorrectes'));
+  const start = lines.findIndex((line) => normalizeHeading(line).startsWith('reponses incorrectes'));
   if (start === -1) {
     return {} as Record<number, string>;
   }
@@ -101,14 +190,14 @@ const extractIncorrectOptionExplanations = (
   const sectionLines: string[] = [];
   for (let i = start + 1; i < lines.length; i += 1) {
     const line = lines[i];
+    const normalizedLine = normalizeHeading(line);
     if (
       isQuestionHeader(line) ||
-      line === 'Domaine' ||
-      line.startsWith('Référence') ||
-      line.startsWith('Références') ||
-      line.startsWith('Liens vers les références') ||
-      line.startsWith('Explication générale') ||
-      line.startsWith('Réponse correcte')
+      normalizedLine === 'domaine' ||
+      normalizedLine.startsWith('reference') ||
+      normalizedLine.startsWith('liens vers les references') ||
+      normalizedLine.startsWith('explication generale') ||
+      normalizedLine.startsWith('reponse correcte')
     ) {
       break;
     }
@@ -253,8 +342,8 @@ const parseMarkdownQuiz = (raw: string, fallbackDomain: string): Question[] => {
       return;
     }
 
-    const options: string[] = [];
-    const correctIndices: number[] = [];
+    let options: string[] = [];
+    let correctIndices: number[] = [];
     let markNextAsCorrect = false;
 
     for (let i = cursor; i < block.length; i += 1) {
@@ -278,6 +367,14 @@ const parseMarkdownQuiz = (raw: string, fallbackDomain: string): Question[] => {
       if (markNextAsCorrect) {
         correctIndices.push(options.length - 1);
         markNextAsCorrect = false;
+      }
+    }
+
+    if (block.some(isIncorrectMarker)) {
+      const rebuiltOptions = extractOptionsFromAnswerSections(block);
+      if (rebuiltOptions) {
+        options = rebuiltOptions.options;
+        correctIndices = rebuiltOptions.correctIndices;
       }
     }
 
