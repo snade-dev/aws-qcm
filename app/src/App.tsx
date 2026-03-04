@@ -23,6 +23,9 @@ const EXAM_DURATION_SECONDS = 90 * 60;
 function App() {
   const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
   const [quizMode, setQuizMode] = useState<QuizMode | null>(null);
+  const [examResultFilter, setExamResultFilter] = useState<
+    "all" | "correct" | "incorrect"
+  >("all");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
   const [answersByQuestion, setAnswersByQuestion] = useState<
@@ -101,6 +104,7 @@ function App() {
     setCurrentQuestionIndex(0);
     setSelectedAnswers([]);
     setAnswersByQuestion({});
+    setExamResultFilter("all");
     setShowResult(false);
     setScore(0);
     setAnsweredQuestions(new Set());
@@ -324,31 +328,52 @@ function App() {
     }
   };
 
-  const getOptionExplanation = (
+  const getOptionExplanationForQuestion = (
+    question: (typeof activeQuestions)[number],
     optionIndex: number,
     isOptionCorrect: boolean,
   ) => {
     if (isOptionCorrect) {
-      return currentQuestion.explanation;
+      return question.explanation;
     }
 
-    const parsedExplanation =
-      currentQuestion.incorrectOptionExplanations?.[optionIndex];
+    const parsedExplanation = question.incorrectOptionExplanations?.[optionIndex];
     if (parsedExplanation) {
       return parsedExplanation;
     }
 
-    const correctOptions = Array.isArray(currentQuestion.correctAnswer)
-      ? currentQuestion.correctAnswer
-          .map((index) => currentQuestion.options[index])
+    const correctOptions = Array.isArray(question.correctAnswer)
+      ? question.correctAnswer
+          .map((index) => question.options[index])
           .join(" / ")
-      : currentQuestion.options[currentQuestion.correctAnswer];
+      : question.options[question.correctAnswer];
 
     return `Cette option n'est pas la bonne réponse. La bonne réponse est : ${correctOptions}.`;
   };
 
+  const getOptionExplanation = (optionIndex: number, isOptionCorrect: boolean) =>
+    getOptionExplanationForQuestion(currentQuestion, optionIndex, isOptionCorrect);
+
   if (quizCompleted) {
     const percentage = Math.round((score / activeQuestions.length) * 100);
+    const questionResults = activeQuestions.map((question, index) => {
+      const answers = answersByQuestion[question.id] ?? [];
+      return {
+        question,
+        index,
+        answers,
+        isCorrect: isAnswerCorrect(question.correctAnswer, answers),
+      };
+    });
+    const correctCount = questionResults.filter((result) => result.isCorrect)
+      .length;
+    const incorrectCount = questionResults.length - correctCount;
+    const filteredQuestionResults = questionResults.filter((result) => {
+      if (examResultFilter === "correct") return result.isCorrect;
+      if (examResultFilter === "incorrect") return !result.isCorrect;
+      return true;
+    });
+
     let message = "";
     let icon = null;
     const domains = Array.from(new Set(activeQuestions.map((q) => q.domain)));
@@ -411,6 +436,171 @@ function App() {
                   );
                 })}
               </div>
+
+              {quizMode === "exam" && (
+                <div className="mb-8 text-left">
+                  <h2 className="text-xl font-semibold text-slate-800 mb-4 text-center md:text-left">
+                    Revue des réponses
+                  </h2>
+
+                  <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExamResultFilter("all")}
+                      className={cn(
+                        examResultFilter === "all"
+                          ? "bg-slate-800 text-white border-slate-800 hover:bg-slate-700"
+                          : "",
+                      )}
+                    >
+                      Toutes ({activeQuestions.length})
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExamResultFilter("correct")}
+                      className={cn(
+                        examResultFilter === "correct"
+                          ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
+                          : "",
+                      )}
+                    >
+                      Bonnes ({correctCount})
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExamResultFilter("incorrect")}
+                      className={cn(
+                        examResultFilter === "incorrect"
+                          ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
+                          : "",
+                      )}
+                    >
+                      Mauvaises ({incorrectCount})
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {filteredQuestionResults.length === 0 ? (
+                      <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                        Aucune question dans cette catégorie.
+                      </div>
+                    ) : (
+                      filteredQuestionResults.map(
+                        ({ question, index, answers, isCorrect }) => (
+                          <div
+                            key={question.id}
+                            className="rounded-lg border border-slate-200 bg-white p-4"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                              <p className="text-sm font-semibold text-slate-700">
+                                Question {index + 1}
+                              </p>
+                              <Badge
+                                className={cn(
+                                  "border",
+                                  isCorrect
+                                    ? "bg-green-100 text-green-700 border-green-200"
+                                    : "bg-red-100 text-red-700 border-red-200",
+                                )}
+                              >
+                                {isCorrect ? "Bonne réponse" : "Mauvaise réponse"}
+                              </Badge>
+                            </div>
+                            <p className="text-slate-800 mb-2 break-words">
+                              {question.question}
+                            </p>
+
+                            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 mb-3">
+                              <p className="text-sm text-blue-800 break-words">
+                                <span className="font-semibold">Explication générale :</span>{" "}
+                                {question.explanation}
+                              </p>
+                            </div>
+
+                            <div className="space-y-2 mb-3">
+                              {question.options.map((option, optionIndex) => {
+                                const isSelected = answers.includes(optionIndex);
+                                const isCorrectOption = Array.isArray(
+                                  question.correctAnswer,
+                                )
+                                  ? question.correctAnswer.includes(optionIndex)
+                                  : question.correctAnswer === optionIndex;
+
+                                return (
+                                  <div
+                                    key={optionIndex}
+                                    className={cn(
+                                      "rounded-md border px-3 py-2 text-sm",
+                                      isCorrectOption
+                                        ? "border-green-200 bg-green-50 text-green-800"
+                                        : isSelected
+                                          ? "border-red-200 bg-red-50 text-red-800"
+                                          : "border-slate-200 bg-slate-50 text-slate-700",
+                                    )}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="break-words">
+                                        <span className="font-semibold mr-1">
+                                          {String.fromCharCode(65 + optionIndex)}.
+                                        </span>
+                                        {option}
+                                      </p>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        {isSelected && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[10px]"
+                                          >
+                                            Votre choix
+                                          </Badge>
+                                        )}
+                                        {isCorrectOption && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[10px] border-green-300 text-green-700"
+                                          >
+                                            Correcte
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <p
+                                      className={cn(
+                                        "text-xs mt-2 leading-relaxed break-words",
+                                        isCorrectOption
+                                          ? "text-green-700"
+                                          : "text-slate-600",
+                                      )}
+                                    >
+                                      {getOptionExplanationForQuestion(
+                                        question,
+                                        optionIndex,
+                                        isCorrectOption,
+                                      )}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {answers.length === 0 && (
+                              <p className="text-sm text-slate-500 mt-2">
+                                Aucune réponse sélectionnée.
+                              </p>
+                            )}
+                          </div>
+                        ),
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-wrap justify-center gap-3">
                 <Button
