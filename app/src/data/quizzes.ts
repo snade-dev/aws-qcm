@@ -162,6 +162,7 @@ const extractExplanation = (lines: string[]) => {
       isCorrectMarker(line) ||
       isIncorrectMarker(line) ||
       normalizedLine.startsWith('options correctes') ||
+      normalizedLine.startsWith('option correcte') ||
       normalizedLine.startsWith('options incorrectes') ||
       normalizedLine.startsWith('reponses incorrectes') ||
       normalizedLine.startsWith('reponse correcte')
@@ -182,7 +183,10 @@ const extractIncorrectOptionExplanations = (
   options: string[],
   correctIndices: number[]
 ) => {
-  const start = lines.findIndex((line) => normalizeHeading(line).startsWith('reponses incorrectes'));
+  const start = lines.findIndex((line) => {
+    const n = normalizeHeading(line);
+    return n.startsWith('reponses incorrectes') || n.startsWith('options incorrectes');
+  });
   if (start === -1) {
     return {} as Record<number, string>;
   }
