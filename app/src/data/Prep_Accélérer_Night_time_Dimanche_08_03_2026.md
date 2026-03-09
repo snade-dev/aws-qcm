@@ -213,11 +213,10 @@ L'un des principaux avantages du cloud AWS réside dans sa capacité à déploye
 Le modèle de tarification à l'usage d'AWS offre une solution économique aux entreprises, leur permettant de ne payer que les ressources utilisées, sans frais initiaux ni engagement à long terme. Ce modèle offre une flexibilité et une maîtrise des coûts particulièrement avantageuses pour les startups et les entreprises souhaitant optimiser leurs budgets. Il aligne directement les coûts sur l'utilisation, évitant ainsi le surdimensionnement et garantissant l'évolutivité.  
 Question 17Incorrect  
 Une entreprise de médias doit utiliser Amazon S3 pour stocker des données, mais doit s'assurer que ces données ne quittent jamais une zone géographique spécifique en raison de règles de conformité. Quelle fonctionnalité d'Amazon S3 permet de garantir le respect de cette exigence ?  
-**Accélération des transferts Amazon S3**  
-**Votre réponse est incorrecte**  
+**Accélération des transferts Amazon S3**   
 **Restrictions régionales d'Amazon S3**  
 **Réplication interrégionale Amazon S3**  
-**Bonne réponse**  
+**Votre réponse est correcte**
 **Politiques relatives aux compartiments Amazon S3**  
 Explication générale  
 **Politiques relatives aux compartiments Amazon S3**
@@ -227,10 +226,9 @@ Question 18Incorrect
 Parmi les propositions suivantes, quels sont les avantages des services gérés AWS ? (Sélectionnez DEUX réponses.)  
 **Votre sélection est correcte**  
 **Réduction des coûts opérationnels de maintenance**  
-**Votre sélection est incorrecte**  
 **Données automatiquement cryptées au repos**  
 **Renforcement du contrôle des infrastructures au plus haut niveau**  
-**Sélection correcte**  
+**Votre sélection est correcte**
 **Sécurité renforcée alignée sur vos contrôles**  
 **Fourniture de services de niveau entreprise libre**  
 Explication générale  
