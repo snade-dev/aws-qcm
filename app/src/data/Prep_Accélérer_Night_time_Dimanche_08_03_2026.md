@@ -82,12 +82,11 @@ Explication générale
 Les balises d'allocation des coûts vous aident à organiser vos ressources AWS et à maîtriser vos coûts. Il s'agit d'une paire clé-valeur que vous pouvez associer à vos ressources AWS. Une fois activées, AWS génère un rapport d'allocation des coûts présentant l'utilisation et les coûts agrégés par vos balises, ce qui vous permet de suivre et de catégoriser vos coûts AWS de manière détaillée.
 
 En associant des identifiants à leurs ressources (nom du projet, service, environnement, etc.), les utilisateurs peuvent organiser leur utilisation et leurs coûts AWS selon différents critères. Ceci facilite l'analyse détaillée des coûts, la budgétisation et le reporting, permettant ainsi aux organisations de comprendre leurs dépenses et d'optimiser leurs investissements AWS. AWS propose deux types d'étiquettes d'affectation des coûts : les « étiquettes système » générées par AWS et les « étiquettes utilisateur », définies par l'utilisateur. Ces deux types d'étiquettes peuvent être utilisés pour un suivi et un reporting précis des coûts.  
-Question 8Incorrect  
+Question 8Correct  
 Une plateforme de streaming utilise AWS Cloud pour stocker et distribuer son contenu vidéo. Toutes les ressources vidéo statiques sont stockées dans S3 sur plusieurs régions. Afin de simplifier l'accès tout en maintenant une faible latence, quelle fonctionnalité AWS devrait-elle implémenter ?  
 **Réplication interrégionale Amazon S3**  
-**Bonne réponse**  
+**Votre réponse est correcte**  
 **Points d'accès multirégionaux Amazon S3**  
-**Votre réponse est incorrecte**  
 **Amazon CloudFront avec S3 Origin**  
 **Accélérateur mondial AWS**  
 Explication générale  
@@ -180,13 +179,12 @@ Question 15Incorrect
 Le cadre AWS Well-Architected décrit les concepts clés, les principes de conception et les meilleures pratiques architecturales pour la conception et l'exécution de charges de travail dans le cloud.
 
 Parmi les éléments suivants, lesquels constituent des piliers du cadre AWS Well-Architected ? (Sélectionnez DEUX réponses.)  
-**Sélection correcte**  
+**Votre sélection est correcte**  
 **Sécurité**  
 **Votre sélection est correcte**  
 **Durabilité**  
 **Évolutivité**  
 **Disponibilité**  
-**Votre sélection est incorrecte**  
 **Élasticité**  
 Explication générale  
 **Pilier de sécurité**
