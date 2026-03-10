@@ -15,8 +15,7 @@ const stopHeadings = [
   'Référence',
   'Références',
   'Alerte à l\'examen',
-  'Domaine',
-  'Bonne réponse'
+  'Domaine'
 ];
 
 const normalizeHeading = (text: string) =>
@@ -29,7 +28,7 @@ const normalizeHeading = (text: string) =>
     .trim();
 
 const isQuestionHeader = (line: string) => /^Question\s+\d+/i.test(line);
-const isCorrectMarker = (line: string) => /Votre\s+(sélection|réponse)\s+est\s+correcte/i.test(line);
+const isCorrectMarker = (line: string) => /Votre\s+(sélection|réponse)\s+est\s+correcte/i.test(line) || /Bonne\s+réponse/i.test(line);
 const isIncorrectMarker = (line: string) => /Votre\s+(sélection|réponse)\s+est\s+incorrecte/i.test(line);
 const isStopHeading = (line: string) => {
   const normalizedLine = normalizeHeading(line);
