@@ -1,73 +1,55 @@
-# React + TypeScript + Vite
+# QWM Quiz App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application React/Vite avec backend Express pour importer des fichiers Markdown, les stocker sur disque, puis les transformer en quiz.
 
-Currently, two official plugins are available:
+## Développement local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Le frontend Vite tourne en développement et le backend Express répond sur le port `3001`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Production locale
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run build
+npm start
 ```
+
+En production, Express sert le frontend buildé depuis `dist` et expose aussi les routes API.
+
+## Variables d'environnement
+
+`PORT`
+Port HTTP du serveur Express. Par défaut : `3001`.
+
+`DATA_DIR`
+Dossier de stockage persistant pour les fichiers Markdown importés.
+
+Sans `DATA_DIR` :
+
+- en développement, les fichiers sont stockés dans `src/data`
+- en production, les fichiers sont stockés dans `data`
+
+## Déploiement Railway ou Render
+
+Configuration recommandée :
+
+1. Root directory : `app`
+2. Build command : `npm install && npm run build`
+3. Start command : `npm start`
+4. Variable d'environnement : `DATA_DIR=/data`
+5. Ajouter un volume persistant monté sur `/data`
+
+Le backend expose :
+
+1. `GET /api/health`
+2. `GET /api/markdown-files`
+3. `POST /api/upload-markdown`
+
+## Note d'architecture
+
+Ne déploie pas cette application sur une plateforme frontend statique seule si tu veux conserver l'upload de fichiers. Il faut un service Node.js avec stockage persistant.

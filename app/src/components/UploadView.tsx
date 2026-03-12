@@ -1,9 +1,22 @@
 import React, { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, UploadCloud, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
-import { parseMarkdownQuiz, type QuizDefinition } from "@/data/quizzes";
+import {
+  ChevronLeft,
+  UploadCloud,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
+import { type QuizDefinition } from "@/data/quizzes";
+import { buildMarkdownQuizDefinition } from "@/data/markdown-quiz";
 import { cn } from "@/lib/utils";
 
 interface UploadViewProps {
@@ -31,11 +44,11 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
     e.preventDefault();
     setIsDragging(false);
     setError(null);
-    
+
     const droppedFiles = Array.from(e.dataTransfer.files).filter(
-      (file) => file.name.endsWith(".md") || file.type === "text/markdown"
+      (file) => file.name.endsWith(".md") || file.type === "text/markdown",
     );
-    
+
     if (droppedFiles.length === 0) {
       setError("Veuillez déposer des fichiers Markdown (.md) valides.");
       return;
@@ -44,21 +57,24 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
     setFiles((prev) => [...prev, ...droppedFiles]);
   }, []);
 
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setError(null);
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFiles = Array.from(e.target.files).filter(
-        (file) => file.name.endsWith(".md") || file.type === "text/markdown"
-      );
-      
-      if (selectedFiles.length === 0) {
-        setError("Veuillez sélectionner des fichiers Markdown (.md).");
-        return;
+  const handleFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setError(null);
+      if (e.target.files && e.target.files.length > 0) {
+        const selectedFiles = Array.from(e.target.files).filter(
+          (file) => file.name.endsWith(".md") || file.type === "text/markdown",
+        );
+
+        if (selectedFiles.length === 0) {
+          setError("Veuillez sélectionner des fichiers Markdown (.md).");
+          return;
+        }
+
+        setFiles((prev) => [...prev, ...selectedFiles]);
       }
-      
-      setFiles((prev) => [...prev, ...selectedFiles]);
-    }
-  }, []);
+    },
+    [],
+  );
 
   const removeFile = (indexToRemove: number) => {
     setFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
@@ -88,7 +104,10 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
 
       const uploadResult = (await uploadResponse.json()) as {
         message?: string;
-        savedFiles?: string[];
+        savedFiles?: Array<{
+          name: string;
+          content: string;
+        }>;
       };
 
       if (!uploadResponse.ok) {
@@ -99,23 +118,14 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
 
       const newQuizzes: QuizDefinition[] = [];
 
-      for (const [index, file] of filePayload.entries()) {
-        const text = file.content;
-        const questions = parseMarkdownQuiz(text, "Domaine"); // You might want user to specify the domain
+      for (const savedFile of uploadResult.savedFiles ?? []) {
+        const quiz = buildMarkdownQuizDefinition(
+          savedFile.name,
+          savedFile.content,
+        );
 
-        if (questions.length > 0) {
-          const savedFileName = uploadResult.savedFiles?.[index] ?? file.name;
-          const readableTitle = savedFileName
-            .replace(/\.md$/i, "")
-            .replace(/[-_]/g, " ");
-          const id = `quiz-custom-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-          newQuizzes.push({
-            id,
-            title: `${readableTitle}`,
-            description: `Importé depuis ${savedFileName} et enregistré dans src/data. Contient ${questions.length} questions.`,
-            questions,
-          });
+        if (quiz.questions.length > 0) {
+          newQuizzes.push(quiz);
         }
       }
 
@@ -139,7 +149,11 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={onBack} className="mb-4 flex items-center gap-2">
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          className="mb-4 flex items-center gap-2"
+        >
           <ChevronLeft className="w-4 h-4" />
           Retour
         </Button>
@@ -150,8 +164,9 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
               Importer des quiz depuis Markdown
             </CardTitle>
             <CardDescription className="text-base text-slate-600 dark:text-slate-400">
-              Déposez vos fichiers Markdown contenant des questions à choix multiples.
-              Ils seront enregistrés dans src/data pendant l'exécution du serveur Vite.
+              Déposez vos fichiers Markdown contenant des questions à choix
+              multiples. Ils seront enregistrés dans src/data pendant
+              l'exécution du serveur Vite.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -166,14 +181,19 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <UploadCloud className={cn("w-12 h-12 mb-4", isDragging ? "text-blue-500" : "text-slate-400")} />
+              <UploadCloud
+                className={cn(
+                  "w-12 h-12 mb-4",
+                  isDragging ? "text-blue-500" : "text-slate-400",
+                )}
+              />
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">
                 Glissez-déposez vos fichiers ici
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
                 Fichiers Markdown (.md) uniquement
               </p>
-              
+
               <div className="relative">
                 <input
                   type="file"
@@ -192,7 +212,9 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
             {error && (
               <div className="p-4 rounded-lg bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800/30 flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+                <p className="text-sm text-red-800 dark:text-red-200">
+                  {error}
+                </p>
               </div>
             )}
 
@@ -202,10 +224,13 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
                   <span>Fichiers en attente d'importation</span>
                   <Badge variant="secondary">{files.length} fichier(s)</Badge>
                 </h4>
-                
+
                 <div className="grid gap-3">
                   {files.map((file, index) => (
-                    <div key={`${file.name}-${index}`} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                    >
                       <div className="flex items-center gap-3 overflow-hidden">
                         <div className="p-2 rounded-md bg-blue-50 dark:bg-blue-900/30">
                           <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -214,7 +239,12 @@ export function UploadView({ onBack, onAddQuizzes }: UploadViewProps) {
                           {file.name}
                         </span>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => removeFile(index)} className="text-red-500 hover:text-red-700 dark:hover:text-red-400">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                        className="text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                      >
                         Retirer
                       </Button>
                     </div>

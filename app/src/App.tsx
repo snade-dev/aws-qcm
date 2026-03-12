@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
 import { UploadView } from "@/components/UploadView";
+import { buildMarkdownQuizDefinition } from "@/data/markdown-quiz";
 
 type QuizMode = "training" | "exam";
 const EXAM_DURATION_SECONDS = 90 * 60;
@@ -46,14 +47,63 @@ function App() {
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(EXAM_DURATION_SECONDS);
 
-  const [quizzesList, setQuizzesList] = useState<QuizDefinition[]>(initialQuizzes);
+  const [quizzesList, setQuizzesList] =
+    useState<QuizDefinition[]>(initialQuizzes);
   const [isUploadPage, setIsUploadPage] = useState(false);
 
   const activeQuiz = useMemo(
     () => quizzesList.find((quiz) => quiz.id === selectedQuizId) ?? null,
     [quizzesList, selectedQuizId],
   );
-  const activeQuestions = useMemo(() => activeQuiz?.questions ?? [], [activeQuiz]);
+  const activeQuestions = useMemo(
+    () => activeQuiz?.questions ?? [],
+    [activeQuiz],
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadMarkdownQuizzes = async () => {
+      try {
+        const response = await fetch("/api/markdown-files");
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          files?: Array<{
+            name: string;
+            content: string;
+          }>;
+        };
+
+        if (!isMounted) {
+          return;
+        }
+
+        const markdownQuizzes = (payload.files ?? [])
+          .map((file) => buildMarkdownQuizDefinition(file.name, file.content))
+          .filter((quiz) => quiz.questions.length > 0);
+
+        setQuizzesList((prev) => {
+          const mergedQuizzes = new Map(prev.map((quiz) => [quiz.id, quiz]));
+          markdownQuizzes.forEach((quiz) => {
+            mergedQuizzes.set(quiz.id, quiz);
+          });
+
+          return Array.from(mergedQuizzes.values());
+        });
+      } catch {
+        return;
+      }
+    };
+
+    void loadMarkdownQuizzes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600)
@@ -80,6 +130,16 @@ function App() {
     }
 
     return answers[0] === correctAnswer;
+  };
+
+  const finishExam = () => {
+    const finalScore = activeQuestions.reduce((acc, question) => {
+      const answers = answersByQuestion[question.id] ?? [];
+      return isAnswerCorrect(question.correctAnswer, answers) ? acc + 1 : acc;
+    }, 0);
+
+    setScore(finalScore);
+    setQuizCompleted(true);
   };
 
   useEffect(() => {
@@ -130,12 +190,24 @@ function App() {
   };
 
   const handleAddQuizzes = useCallback((newQuizzes: QuizDefinition[]) => {
-    setQuizzesList((prev) => [...prev, ...newQuizzes]);
+    setQuizzesList((prev) => {
+      const mergedQuizzes = new Map(prev.map((quiz) => [quiz.id, quiz]));
+      newQuizzes.forEach((quiz) => {
+        mergedQuizzes.set(quiz.id, quiz);
+      });
+
+      return Array.from(mergedQuizzes.values());
+    });
     setIsUploadPage(false);
   }, []);
 
   if (isUploadPage) {
-    return <UploadView onBack={() => setIsUploadPage(false)} onAddQuizzes={handleAddQuizzes} />;
+    return (
+      <UploadView
+        onBack={() => setIsUploadPage(false)}
+        onAddQuizzes={handleAddQuizzes}
+      />
+    );
   }
 
   if (!activeQuiz) {
@@ -153,11 +225,14 @@ function App() {
                     Choisissez un quiz à lancer
                   </CardTitle>
                   <p className="text-sm md:text-base text-slate-600 dark:text-slate-300 mt-2">
-                    Sélectionnez un quiz puis le mode adapté : entraînement guidé ou
-                    examen chronométré.
+                    Sélectionnez un quiz puis le mode adapté : entraînement
+                    guidé ou examen chronométré.
                   </p>
                 </div>
-                <Button onClick={() => setIsUploadPage(true)} className="flex items-center gap-2 w-full md:w-auto">
+                <Button
+                  onClick={() => setIsUploadPage(true)}
+                  className="flex items-center gap-2 w-full md:w-auto"
+                >
                   <FileUp className="w-4 h-4" />
                   Importer un quiz
                 </Button>
