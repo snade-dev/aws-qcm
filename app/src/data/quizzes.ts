@@ -293,7 +293,7 @@ const extractIncorrectOptionExplanations = (
   return explanations;
 };
 
-const parseMarkdownQuiz = (raw: string, fallbackDomain: string): Question[] => {
+export const parseMarkdownQuiz = (raw: string, fallbackDomain: string): Question[] => {
   const lines = raw
     .split(/\r?\n/)
     .map(normalizeLine)

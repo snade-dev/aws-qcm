@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { quizzes } from "./data/quizzes";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { quizzes as initialQuizzes, type QuizDefinition } from "./data/quizzes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -14,8 +14,11 @@ import {
   BookOpen,
   Trophy,
   AlertCircle,
+  FileUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ModeToggle } from "@/components/mode-toggle";
+import { UploadView } from "@/components/UploadView";
 
 type QuizMode = "training" | "exam";
 const EXAM_DURATION_SECONDS = 90 * 60;
@@ -43,8 +46,14 @@ function App() {
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(EXAM_DURATION_SECONDS);
 
-  const activeQuiz = quizzes.find((quiz) => quiz.id === selectedQuizId) ?? null;
-  const activeQuestions = activeQuiz?.questions ?? [];
+  const [quizzesList, setQuizzesList] = useState<QuizDefinition[]>(initialQuizzes);
+  const [isUploadPage, setIsUploadPage] = useState(false);
+
+  const activeQuiz = useMemo(
+    () => quizzesList.find((quiz) => quiz.id === selectedQuizId) ?? null,
+    [quizzesList, selectedQuizId],
+  );
+  const activeQuestions = useMemo(() => activeQuiz?.questions ?? [], [activeQuiz]);
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600)
@@ -60,45 +69,45 @@ function App() {
     return `${hours}:${minutes}:${seconds}`;
   };
 
-  const computeExamScore = () =>
-    activeQuestions.reduce((acc, question) => {
-      const answers = answersByQuestion[question.id] ?? [];
-      return isAnswerCorrect(question.correctAnswer, answers) ? acc + 1 : acc;
-    }, 0);
+  const isAnswerCorrect = (
+    correctAnswer: number | number[],
+    answers: number[],
+  ) => {
+    if (Array.isArray(correctAnswer)) {
+      const sortedSelected = [...answers].sort();
+      const sortedCorrect = [...correctAnswer].sort();
+      return JSON.stringify(sortedSelected) === JSON.stringify(sortedCorrect);
+    }
 
-  const finishExam = () => {
-    const finalScore = computeExamScore();
-    setScore(finalScore);
-    setQuizCompleted(true);
+    return answers[0] === correctAnswer;
   };
 
   useEffect(() => {
-    if (
-      quizMode !== "exam" ||
-      !activeQuiz ||
-      quizCompleted ||
-      timeRemaining <= 0
-    ) {
+    if (quizMode !== "exam" || !activeQuiz || quizCompleted) {
       return;
     }
 
     const intervalId = window.setInterval(() => {
-      setTimeRemaining((prev) => (prev > 0 ? prev - 1 : 0));
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          const finalScore = activeQuestions.reduce((acc, question) => {
+            const answers = answersByQuestion[question.id] ?? [];
+            return isAnswerCorrect(question.correctAnswer, answers)
+              ? acc + 1
+              : acc;
+          }, 0);
+
+          setScore(finalScore);
+          setQuizCompleted(true);
+          return 0;
+        }
+
+        return prev - 1;
+      });
     }, 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [quizMode, activeQuiz, quizCompleted, timeRemaining]);
-
-  useEffect(() => {
-    if (
-      quizMode === "exam" &&
-      activeQuiz &&
-      !quizCompleted &&
-      timeRemaining === 0
-    ) {
-      finishExam();
-    }
-  }, [quizMode, activeQuiz, quizCompleted, timeRemaining]);
+  }, [quizMode, activeQuiz, quizCompleted, activeQuestions, answersByQuestion]);
 
   const resetQuizProgress = () => {
     setCurrentQuestionIndex(0);
@@ -120,35 +129,55 @@ function App() {
     resetQuizProgress();
   };
 
+  const handleAddQuizzes = useCallback((newQuizzes: QuizDefinition[]) => {
+    setQuizzesList((prev) => [...prev, ...newQuizzes]);
+    setIsUploadPage(false);
+  }, []);
+
+  if (isUploadPage) {
+    return <UploadView onBack={() => setIsUploadPage(false)} onAddQuizzes={handleAddQuizzes} />;
+  }
+
   if (!activeQuiz) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 p-4 md:p-8">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 p-4 md:p-8">
+        <div className="fixed top-4 right-4 z-50">
+          <ModeToggle />
+        </div>
         <div className="max-w-5xl mx-auto space-y-5">
-          <Card className="border border-slate-200/80 shadow-2xl shadow-slate-200/50">
+          <Card className="border border-slate-200 dark:border-slate-800/80 shadow-2xl shadow-slate-200/50">
             <CardHeader className="pb-2">
-              <CardTitle className="text-2xl md:text-3xl font-bold text-slate-800">
-                Choisissez un quiz à lancer
-              </CardTitle>
-              <p className="text-sm md:text-base text-slate-600">
-                Sélectionnez un quiz puis le mode adapté : entraînement guidé ou
-                examen chronométré.
-              </p>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100">
+                    Choisissez un quiz à lancer
+                  </CardTitle>
+                  <p className="text-sm md:text-base text-slate-600 dark:text-slate-300 mt-2">
+                    Sélectionnez un quiz puis le mode adapté : entraînement guidé ou
+                    examen chronométré.
+                  </p>
+                </div>
+                <Button onClick={() => setIsUploadPage(true)} className="flex items-center gap-2 w-full md:w-auto">
+                  <FileUp className="w-4 h-4" />
+                  Importer un quiz
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4 pb-6">
-              {quizzes.map((quiz) => (
+            <CardContent className="space-y-4 pb-6 mt-4">
+              {quizzesList.map((quiz) => (
                 <Card
                   key={quiz.id}
-                  className="border border-slate-200 bg-white/80 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300"
+                  className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300"
                 >
                   <CardContent className="p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="min-w-0 space-y-1">
-                      <h3 className="text-lg font-semibold text-slate-800 break-words">
+                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 break-words">
                         {quiz.title}
                       </h3>
-                      <p className="text-sm text-slate-600 break-words">
+                      <p className="text-sm text-slate-600 dark:text-slate-300 break-words">
                         {quiz.description}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         {quiz.questions.length} questions détectées
                       </p>
                     </div>
@@ -180,14 +209,17 @@ function App() {
 
   if (activeQuestions.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 p-4 md:p-8">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 p-4 md:p-8">
+        <div className="fixed top-4 right-4 z-50">
+          <ModeToggle />
+        </div>
         <div className="max-w-4xl mx-auto">
-          <Card className="shadow-xl border border-slate-200/80">
+          <Card className="shadow-xl border border-slate-200 dark:border-slate-800/80">
             <CardContent className="p-8 text-center space-y-4">
-              <h1 className="text-2xl font-bold text-slate-800">
+              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                 Aucune question trouvée
               </h1>
-              <p className="text-slate-600">
+              <p className="text-slate-600 dark:text-slate-300">
                 Le quiz sélectionné ne contient pas de questions exploitables.
               </p>
               <Button variant="outline" onClick={() => setSelectedQuizId(null)}>
@@ -202,19 +234,6 @@ function App() {
 
   const currentQuestion = activeQuestions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / activeQuestions.length) * 100;
-
-  const isAnswerCorrect = (
-    correctAnswer: number | number[],
-    answers: number[],
-  ) => {
-    if (Array.isArray(correctAnswer)) {
-      const sortedSelected = [...answers].sort();
-      const sortedCorrect = [...correctAnswer].sort();
-      return JSON.stringify(sortedSelected) === JSON.stringify(sortedCorrect);
-    }
-
-    return answers[0] === correctAnswer;
-  };
 
   const setQuestionState = (index: number) => {
     const question = activeQuestions[index];
@@ -380,10 +399,12 @@ function App() {
     const ignoredCount = questionResults.filter((r) => r.ignored).length;
     const incorrectCount = questionResults.length - correctCount - ignoredCount;
     const answeredCount = activeQuestions.length - ignoredCount;
-    const percentage = answeredCount > 0 ? Math.round((score / answeredCount) * 100) : 0;
+    const percentage =
+      answeredCount > 0 ? Math.round((score / answeredCount) * 100) : 0;
     const filteredQuestionResults = questionResults.filter((result) => {
       if (examResultFilter === "correct") return result.isCorrect;
-      if (examResultFilter === "incorrect") return !result.isCorrect && !result.ignored;
+      if (examResultFilter === "incorrect")
+        return !result.isCorrect && !result.ignored;
       if (examResultFilter === "ignored") return result.ignored;
       return true;
     });
@@ -405,24 +426,31 @@ function App() {
     }
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 p-4 md:p-8">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 p-4 md:p-8">
+        <div className="fixed top-4 right-4 z-50">
+          <ModeToggle />
+        </div>
         <div className="max-w-4xl mx-auto">
-          <Card className="shadow-xl border border-slate-200/80">
+          <Card className="shadow-xl border border-slate-200 dark:border-slate-800/80">
             <CardContent className="p-8 text-center">
               <div className="flex justify-center mb-6">{icon}</div>
-              <h1 className="text-3xl font-bold text-slate-800 mb-4">
+              <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-4">
                 Quiz Terminé !
               </h1>
-              <p className="text-xl text-slate-600 mb-8">{message}</p>
+              <p className="text-xl text-slate-600 dark:text-slate-300 mb-8">
+                {message}
+              </p>
 
-              <div className="bg-slate-50 rounded-2xl p-8 mb-8 border border-slate-200/80">
-                <div className="text-5xl font-bold text-slate-800 mb-2">
+              <div className="bg-slate-50 rounded-2xl p-8 mb-8 border border-slate-200 dark:border-slate-800/80">
+                <div className="text-5xl font-bold text-slate-800 dark:text-slate-100 mb-2">
                   {score} / {activeQuestions.length - ignoredCount}
                 </div>
-                <div className="text-sm text-slate-500 uppercase tracking-wide mb-1">
+                <div className="text-sm text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
                   Pourcentage de réussite
                 </div>
-                <div className="text-2xl text-slate-500">{percentage}%</div>
+                <div className="text-2xl text-slate-500 dark:text-slate-400">
+                  {percentage}%
+                </div>
                 <Progress value={percentage} className="mt-4 h-3" />
               </div>
 
@@ -438,9 +466,9 @@ function App() {
                   return (
                     <div
                       key={domain}
-                      className="bg-white rounded-lg p-4 border border-slate-200 shadow-xs"
+                      className="bg-white dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-800 shadow-xs"
                     >
-                      <div className="text-xs text-slate-500 mb-1">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                         {domain}
                       </div>
                       <div className="text-lg font-semibold text-slate-700">
@@ -452,7 +480,7 @@ function App() {
               </div>
 
               <div className="mb-8 text-left">
-                <h2 className="text-xl font-semibold text-slate-800 mb-4 text-center md:text-left">
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4 text-center md:text-left">
                   Revue des réponses
                 </h2>
 
@@ -515,7 +543,7 @@ function App() {
 
                 <div className="space-y-3">
                   {filteredQuestionResults.length === 0 ? (
-                    <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 text-sm text-slate-600 dark:text-slate-300">
                       Aucune question dans cette catégorie.
                     </div>
                   ) : (
@@ -523,7 +551,7 @@ function App() {
                       ({ question, index, answers, isCorrect, ignored }) => (
                         <div
                           key={question.id}
-                          className="rounded-lg border border-slate-200 bg-white p-4"
+                          className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                             <p className="text-sm font-semibold text-slate-700">
@@ -539,10 +567,14 @@ function App() {
                                     : "bg-red-100 text-red-700 border-red-200",
                               )}
                             >
-                              {ignored ? "Ignorée" : isCorrect ? "Bonne réponse" : "Mauvaise réponse"}
+                              {ignored
+                                ? "Ignorée"
+                                : isCorrect
+                                  ? "Bonne réponse"
+                                  : "Mauvaise réponse"}
                             </Badge>
                           </div>
-                          <p className="text-slate-800 mb-2 break-words">
+                          <p className="text-slate-800 dark:text-slate-100 mb-2 break-words">
                             {question.question}
                           </p>
 
@@ -573,7 +605,7 @@ function App() {
                                       ? "border-green-200 bg-green-50 text-green-800"
                                       : isSelected
                                         ? "border-red-200 bg-red-50 text-red-800"
-                                        : "border-slate-200 bg-slate-50 text-slate-700",
+                                        : "border-slate-200 dark:border-slate-800 bg-slate-50 text-slate-700",
                                   )}
                                 >
                                   <div className="flex items-start justify-between gap-2">
@@ -607,7 +639,7 @@ function App() {
                                       "text-xs mt-2 leading-relaxed break-words",
                                       isCorrectOption
                                         ? "text-green-700"
-                                        : "text-slate-600",
+                                        : "text-slate-600 dark:text-slate-300",
                                     )}
                                   >
                                     {getOptionExplanationForQuestion(
@@ -654,13 +686,16 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 p-4 md:p-8">
+      <div className="fixed top-4 right-4 z-50">
+        <ModeToggle />
+      </div>
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <Card className="mb-6 border border-slate-200/80 shadow-md bg-white/90">
+        <Card className="mb-6 border border-slate-200 dark:border-slate-800/80 shadow-md bg-white dark:bg-slate-900/90">
           <CardContent className="p-5 md:p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-4">
-              <h1 className="min-w-0 text-2xl md:text-3xl font-bold text-slate-800 break-words leading-tight">
+              <h1 className="min-w-0 text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 break-words leading-tight">
                 {activeQuiz.title}
               </h1>
               <div className="flex flex-wrap items-center gap-2 md:gap-3">
@@ -697,7 +732,7 @@ function App() {
               </div>
             </div>
             <Progress value={progress} className="h-2.5" />
-            <div className="flex justify-between text-sm text-slate-500 mt-2">
+            <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 mt-2">
               <span>
                 Question {currentQuestionIndex + 1} sur {activeQuestions.length}
               </span>
@@ -709,7 +744,7 @@ function App() {
         </Card>
 
         {/* Question Card */}
-        <Card className="shadow-lg border border-slate-200/80 bg-white mb-6">
+        <Card className="shadow-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900 mb-6">
           <CardHeader className="pb-4 pt-6 px-6">
             <div className="flex items-start justify-between gap-4">
               <Badge
@@ -730,7 +765,7 @@ function App() {
                 </Badge>
               )}
             </div>
-            <CardTitle className="text-xl md:text-2xl font-semibold text-slate-800 mt-4 leading-relaxed break-words tracking-tight">
+            <CardTitle className="text-xl md:text-2xl font-semibold text-slate-800 dark:text-slate-100 mt-4 leading-relaxed break-words tracking-tight">
               {currentQuestion.question}
             </CardTitle>
           </CardHeader>
@@ -754,7 +789,7 @@ function App() {
                       "border-red-500 bg-red-50 text-red-800 hover:bg-red-100 shadow-xs ";
                   } else {
                     buttonClass +=
-                      "border-slate-200 bg-slate-50 text-slate-400 ";
+                      "border-slate-200 dark:border-slate-800 bg-slate-50 text-slate-400 ";
                   }
                 } else {
                   if (isSelected) {
@@ -762,7 +797,7 @@ function App() {
                       "border-blue-500 bg-blue-50 text-blue-800 hover:bg-blue-100 shadow-xs ";
                   } else {
                     buttonClass +=
-                      "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/60 hover:shadow-xs ";
+                      "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 hover:border-blue-300 hover:bg-blue-50/60 hover:shadow-xs ";
                   }
                 }
 
@@ -793,7 +828,7 @@ function App() {
                           )}
                         </div>
                       )}
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold flex-shrink-0">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-600 dark:text-slate-300 text-xs font-semibold flex-shrink-0">
                         {String.fromCharCode(65 + index)}
                       </span>
                       <span className="flex-1 min-w-0 break-words font-medium">
@@ -827,8 +862,8 @@ function App() {
                   </p>
                 </div>
 
-                <div className="mt-4 p-5 bg-slate-50 border border-slate-200 rounded-xl shadow-xs">
-                  <h4 className="font-semibold text-slate-800 mb-3">
+                <div className="mt-4 p-5 bg-slate-50 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
+                  <h4 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">
                     Analyse des options
                   </h4>
                   <div className="space-y-3">
@@ -846,20 +881,20 @@ function App() {
                             "rounded-md border p-3",
                             isOptionCorrect
                               ? "border-green-200 bg-green-50"
-                              : "border-slate-200 bg-white",
+                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900",
                           )}
                         >
                           <div className="flex items-start gap-2 mb-1">
                             {isOptionCorrect ? (
                               <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                             ) : (
-                              <XCircle className="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                              <XCircle className="w-4 h-4 text-slate-500 dark:text-slate-400 mt-0.5 flex-shrink-0" />
                             )}
-                            <p className="font-medium text-slate-800 break-words">
+                            <p className="font-medium text-slate-800 dark:text-slate-100 break-words">
                               {option}
                             </p>
                           </div>
-                          <p className="text-sm text-slate-600 leading-relaxed break-words pl-6">
+                          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed break-words pl-6">
                             {getOptionExplanation(index, isOptionCorrect)}
                           </p>
                         </div>
@@ -907,10 +942,10 @@ function App() {
         </Card>
 
         {/* Question Navigator */}
-        <Card className="shadow-md border border-slate-200/80 bg-white/95">
+        <Card className="shadow-md border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/95">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-600">
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
                 Navigateur de questions
               </span>
               <Button
@@ -920,10 +955,15 @@ function App() {
                   if (quizMode === "exam") {
                     finishExam();
                   } else {
-                    const finalScore = activeQuestions.reduce((acc, question) => {
-                      const answers = answersByQuestion[question.id] ?? [];
-                      return isAnswerCorrect(question.correctAnswer, answers) ? acc + 1 : acc;
-                    }, 0);
+                    const finalScore = activeQuestions.reduce(
+                      (acc, question) => {
+                        const answers = answersByQuestion[question.id] ?? [];
+                        return isAnswerCorrect(question.correctAnswer, answers)
+                          ? acc + 1
+                          : acc;
+                      },
+                      0,
+                    );
                     setScore(finalScore);
                     setQuizCompleted(true);
                   }
@@ -946,7 +986,7 @@ function App() {
                         ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
                         : quizMode === "exam" && answeredQuestions.has(q.id)
                           ? "bg-indigo-100 text-indigo-700 border border-indigo-300 hover:bg-indigo-200"
-                          : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200",
+                          : "bg-slate-100 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-200",
                   )}
                 >
                   {index + 1}
